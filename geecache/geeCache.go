@@ -1,10 +1,3 @@
-/*
-	如果缓存不存在，应从数据源（文件，数据库等）获取数据并添加到缓存中。
-	GeeCache 是否应该支持多种数据源的配置呢？不应该，一是数据源的种类太多，没办法一一实现；二是扩展性不好。
-	如何从源头获取数据，应该是用户决定的事情，所以就把这件事交给用户好了。
-	因此，我们设计了一个回调函数(callback)，在缓存不存在时，调用这个函数，得到源数据。
-*/
-
 package geecache
 
 import (
@@ -17,10 +10,10 @@ import (
 
 // Group 是一个缓存的命名空间， 并且关联数据
 type Group struct {
-	name      string //一个 Group 可以认为是一个缓存的命名空间，每个 Group 拥有一个唯一的名称 name。比如可以创建三个 Group，缓存学生的成绩命名为 scores，缓存学生信息的命名为 info，缓存学生课程的命名为 courses
-	getter    Getter //缓存未命中时获取源数据的回调(callback)
-	mainCache cache  //并发缓存
-	nodes     NodePicker
+	name      string              //一个 Group 可以认为是一个缓存的命名空间，每个 Group 拥有一个唯一的名称 name。比如可以创建三个 Group，缓存学生的成绩命名为 scores，缓存学生信息的命名为 info，缓存学生课程的命名为 courses
+	getter    Getter              //缓存未命中时获取源数据的回调(callback)
+	mainCache cache               //并发缓存
+	nodes     NodePicker          //根据传入的 key 选择相应节点 NodeGetter
 	loader    *singleFlight.Group //确保每个key只被调用一次
 }
 
@@ -69,8 +62,10 @@ func GetGroup(name string) *Group {
 
 /*
 	Get : GeeCache 最为核心的方法
-		流程 1 ：从 mainCache 中查找缓存，如果存在则返回缓存值。
-		流程 3 ：缓存不存在，则调用 load 方法，通过 调用用户的回调函数 g.getter.Get() 获取源数据
+		流程 1 ：从 mainCache 中查找缓存，如果存在则返回缓存值
+				如果不存在，则调用 load 方法。
+		流程 2 ：使用 PickNode 方法选择节点，若非本机节点，则调用 getFromNode 从远程获取。
+		流程 3 ：若是本机节点或失败，则回退到 getLocally，然后通过 调用用户的回调函数 g.getter.Get() 获取源数据
 */
 func (g *Group) Get(key string) (ByteView, error) {
 	if key == "" {

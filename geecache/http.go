@@ -49,7 +49,7 @@ func (h *httpGetter) Get(in *pb.Request, out *pb.Response) error {
 	return nil
 }
 
-// HTTPPool implements NodePicker for a pool of HTTP nodes.
+// HTTPPool 作为一个 HTTP 的节点池，实现了 NodePicker 接口和 Handler 接口
 type HTTPPool struct {
 	self        string                 //用来记录自己的地址，包括主机名/IP 和端口
 	basePath    string                 //节点间通讯地址的前缀
